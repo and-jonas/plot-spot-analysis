@@ -8,6 +8,7 @@ rm(list = ls())
 library(nlme)
 library(MASS)
 library(tidyverse)
+library(patchwork)
 
 setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack")
 
@@ -44,6 +45,43 @@ get_cor_matrix <- function(corStruct, n){
   phi <- coef(corStruct, unconstrained = FALSE)
   mat <- phi ^ (abs(outer(1:n,1:n, "-")))
   return(mat)
+}
+
+# get model diagnostic plots
+plot_diagnostics <- function(model){
+  # Extract residuals and fitted values
+  res <- resid(model)
+  fit <- fitted(model)
+  
+  # Base data frame
+  df_diag <- data.frame(Fitted = fit, Residuals = res)
+  
+  # 1. Fitted vs residuals
+  p1 <- ggplot(df_diag, aes(x = Fitted, y = Residuals)) +
+    geom_point(alpha = 0.5) +
+    geom_hline(yintercept = 0, color = "red", linetype = 2) +
+    labs(x = "Fitted values", y = "Residuals") +
+    theme_classic(base_size = 12)
+  
+  # 2. Normal Q–Q plot
+  qq_data <- data.frame(sample = res)
+  p2 <- ggplot(qq_data, aes(sample = sample)) +
+    stat_qq(alpha = 0.6) +
+    stat_qq_line(color = "red", linetype = 2) +
+    labs(x = "Theoretical Quantiles", y = "Sample Quantiles") +
+    theme_classic(base_size = 12)
+  
+  # 3. Histogram of residuals
+  p3 <- ggplot(df_diag, aes(x = Residuals)) +
+    geom_histogram(bins = 30, fill = "grey70", color = "black") +
+    labs(x = "Residuals", y = "Frequency") +
+    theme_classic(base_size = 12)
+  
+  # Combine in a grid
+  final_plot <- p1 + p2 + p3 +
+    plot_layout(ncol = 3)
+  
+  final_plot
 }
 
 # ============================================================================== -
@@ -237,12 +275,12 @@ stacks <- ggplot(acf_long, aes(x = lag, y = acf_vals, group = interaction(plot_i
   geom_line(alpha = 0.1) +
   geom_abline(intercept = 0, slope = 0, color = "red", lty = 2) +
   labs(x = "Lag", y = "Autocorrelation", color = "Genotype", fill = "Genotype") +
-  scale_x_continuous(breaks = seq(0, 9, by = 1)) +
+  scale_x_continuous(breaks = seq(0, 9, by = 3)) +
   scale_y_continuous(breaks = seq(-0.5, 1.0, by = 0.5), limits = c(-0.75, 1.0)) +
   facet_wrap(~trait) +
   theme(panel.grid.minor = element_blank()) +
   base_theme
-png("per_stack_traits.png", width = 8, height = 4, units = 'in', res = 400)
+png("per_stack_traits.png", width = 6, height = 4, units = 'in', res = 400)
 plot(stacks)
 dev.off()
 
@@ -268,12 +306,118 @@ stack_all <- ggplot(pdat_summary_stack, aes(x = lag, y = mean_acf, group = trait
   labs(x = "Lag", y = "Autocorrelation") +
   scale_color_manual(values = c("#1B9E77", "#D95F02")) +
   scale_fill_manual(values = c("#1B9E77", "#D95F02")) +
-  scale_x_continuous(breaks = seq(0, 9, by = 1)) +
+  scale_x_continuous(breaks = seq(0, 24, by = 3)) +
   scale_y_continuous(breaks = seq(-0.5, 1.0, by = 0.5), limits = c(-0.75, 1.0)) +
   base_theme
   
 png("acf_stack_all.png", width = 6, height = 6, units = 'in', res = 400)
 plot(stack_all)
+dev.off()
+
+# get means and standard deviations per genotype
+pdat_summary <- acf_long %>%
+  group_by(genotype_name, lag, trait) %>%
+  summarise(
+    mean_acf = mean(acf_vals, na.rm = TRUE),
+    sd_acf = sd(acf_vals, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Function to create 3-letter codes
+shorten_name <- function(x) {
+  x <- toupper(trimws(x))
+  x <- sub("^CH\\s+", "", x)
+  x <- sub("^KWS\\s+", "", x)
+  substr(x, 1, 3)
+}
+
+pdat_summary <- pdat_summary %>% mutate(geno_code = shorten_name(genotype_name))
+
+# plot mean ± SD per genotype
+genos <- ggplot(pdat_summary, aes(x = lag, y = mean_acf, color = factor(geno_code))) +
+  geom_line(size = 1) +
+  geom_abline(intercept = 0, slope = 0, color = "black", lty = 2) +
+  geom_ribbon(aes(ymin = mean_acf - sd_acf, ymax = mean_acf + sd_acf, fill = factor(geno_code)),
+              alpha = 0.1, color = NA) +
+  labs(x = "Lag", y = "Autocorrelation", color = "Genotype", fill = "Genotype") +
+  scale_x_continuous(breaks = seq(0, 9, by = 3)) +
+  scale_y_continuous(breaks = seq(-0.5, 1.0, by = 0.5), limits = c(-0.75, 1.0)) +
+  facet_wrap(~trait) +
+  base_theme +
+  guides(color = guide_legend(
+    override.aes = list(size = 1),
+    nrow = 4)) +
+  theme(legend.position = c(0.3, 0.85),
+        legend.key.size = unit(0.25, "cm"),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 7, face = "bold"))
+
+png("acf_genos.png", width = 6, height = 4, units = 'in', res = 400)
+plot(genos)
+dev.off()
+
+# get data for genotypes
+pdat_pot <- acf_long %>%
+  group_by(leaf_layer, lag, trait) %>%
+  summarise(
+    mean_acf = mean(acf_vals, na.rm = TRUE),
+    sd_acf   = sd(acf_vals, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# plot mean ± SD per leaf layer for each genotype
+layer <- ggplot(pdat_pot, aes(x = lag, y = mean_acf, color = factor(leaf_layer))) +
+  geom_line(size = 1) +
+  geom_abline(intercept = 0, slope = 0, color = "black", lty = 2) +
+  geom_ribbon(aes(ymin = mean_acf - sd_acf, ymax = mean_acf + sd_acf, fill = factor(leaf_layer)),
+              alpha = 0.2, color = NA) +
+  labs(x = "Lag", y = "Autocorrelation", color = "Leaf layer", fill = "Leaf layer") +
+  scale_x_continuous(breaks = seq(0, 9, by = 3)) +
+  scale_y_continuous(breaks = seq(-0.5, 1.0, by = 0.5), limits = c(-0.75, 1.0)) +
+  facet_wrap(~trait) +
+  theme(panel.grid.minor = element_blank()) +
+  base_theme +
+  guides(color = guide_legend(
+    override.aes = list(size = 1),
+    nrow = 4)) +
+  theme(legend.position = c(0.3, 0.85),
+        legend.key.size = unit(0.25, "cm"),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 7, face = "bold"))
+png("acf_layer.png", width = 6, height = 4, units = 'in', res = 400)
+plot(layer)
+dev.off()
+
+# get means and standard deviations per genotype group (leaf angles)
+pdat_summary <- acf_long %>%
+  group_by(ang, lag, trait) %>%
+  summarise(
+    mean_acf = mean(acf_vals, na.rm = TRUE),
+    sd_acf = sd(acf_vals, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# plot mean ± SD per genoype group (leaf angles)
+angles <- ggplot(pdat_summary, aes(x = lag, y = mean_acf, color = factor(ang))) +
+  geom_line(size = 1) +
+  geom_abline(intercept = 0, slope = 0, color = "black", lty = 2) +
+  geom_ribbon(aes(ymin = mean_acf - sd_acf, ymax = mean_acf + sd_acf, fill = factor(ang)),
+              alpha = 0.2, color = NA) +
+  labs(x = "Lag", y = "Autocorrelation", color = "Angle", fill = "Angle") +
+  scale_x_continuous(breaks = seq(0, 9, by = 3)) +
+  scale_y_continuous(breaks = seq(-0.5, 1.0, by = 0.5), limits = c(-0.75, 1.0)) +
+  facet_wrap(~trait) +
+  theme(panel.grid.minor = element_blank()) +
+  base_theme +
+  guides(color = guide_legend(
+    override.aes = list(size = 1),
+    nrow = 4)) +
+  theme(legend.position = c(0.3, 0.85),
+        legend.key.size = unit(0.25, "cm"),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 7, face = "bold"))
+png("acf_angles.png", width = 6, height = 4, units = 'in', res = 400)
+plot(angles)
 dev.off()
 
 # ============================================================================== -
@@ -402,58 +546,51 @@ mdat_stack$stack_uid = interaction(mdat_stack$plot_id, mdat_stack$position, mdat
 
 # Fit an LMM
 # we have "pseudo-replicates" from the positions (1...32) for each plot.
-# Actually, we would need to specify 'position nested in plot' as a random factor to account for this. 
+# Position is nested in plot.  
 # However, it is apparently not possible to have different formulae for the random and the correlation term; 
-# and nested terms are not allowed in the correlation term. Therefore, we include a random effect for each stack instead. 
-# According to my understanding, I cannot have nested random effects for plot/position and an AR(1) correlation along images in stacks at the same time. 
-# So this is not perfect, but OK for descriptive purposes? We don't do formal inference on plot-level effects, the main goal 
-# is to quantify auto-correlation based on the full data set. 
-# Leaf layer can be considered crossed with plot (leaf layer 1 has the same/a very similar meaning across all plots)
+# Leaf layer CAN be considered crossed with plot (leaf layer 1 has the same/a very similar meaning across all plots)
 # We include leaf layer as an additional fixed effect
 
 # stack_image_id is 1..10, thus identifying the "depth" of the image in each stack
-# stack_uid is a unique identifier for each focal stack
 
-# without plot x layer interaction
-model_stacks_0 <- lme(
-  placl_logit ~ plot_id + leaf_layer,
-  random = ~1 | stack_uid,
-  correlation = corAR1(form = ~ stack_image_id | stack_uid),
-  data = mdat_stack,
-  method = "REML",
-  na.action=na.exclude
-)
+# # without plot x layer interaction
+# model_stacks_0 <- lme(
+#   placl_logit ~ plot_id + leaf_layer,
+#   random = ~ 1 | plot_id/position/leaf_layer,
+#   correlation = corAR1(form = ~ stack_image_id | plot_id/position/leaf_layer),
+#   data = mdat_stack,
+#   method = "REML",
+#   na.action=na.exclude
+# )
 # with plot x layer interaction
 model_stacks_1 <- lme(
   placl_logit ~ plot_id * leaf_layer,
-  random = ~1 | stack_uid,
-  correlation = corAR1(form = ~ stack_image_id | stack_uid),
+  random = ~ 1 | plot_id/position/leaf_layer,
+  correlation = corAR1(form = ~ stack_image_id | plot_id/position/leaf_layer),
   data = mdat_stack,
   method = "REML",
   na.action=na.exclude
 )
-AIC(model_stacks_0, model_stacks_1)  # preference for model 1
+# AIC(model_stacks_0, model_stacks_1)  # preference for model '_1'
+
 model_stacks_placl <- model_stacks_1 
 
-plot(model_stacks_placl)
-qqnorm(resid(model_stacks_placl))
-qqline(resid(model_stacks_placl))
-hist(resid(model_stacks_placl))
-# OK, I guess? Best we can do?
+# plot model diagnostics
+diag_PLACL_stacks <- plot_diagnostics(model_stacks_placl)
 
 # get autocorrelation coefficient
 # this coefficient is valid for the logit-transformed data
 # logit-transformation 'stretches' values near 0 and 1
-# so a difference between PLACL 0 and 0.1 is 'amplified' compared to a difference between 
+# so a difference between PLACL 0 and 0.01 is 'amplified' compared to a difference between 
 # PLACL of 0.49 and 0.5; however, as breeders we would are more about values on the original PLACL scale ...
 phi1_stack_placl <- coef(model_stacks_placl$modelStruct$corStruct, unconstrained = FALSE)
 
-# SIMULATION
+# Simulate and back-transform to estimate autocorrelation on original scale
 # model pieces
-sigma_resid <- sqrt(model_stacks_placl$sigma^2)  # residual sd
-fixef_vals <- fitted(model_stacks_placl, level = 0)  # fixed-effect fitted values on transformed scale
-# get random effects by stack if you want to simulate them too:
-ranef_df <- ranef(model_stacks_placl)  # random intercepts per stack
+sigma_resid <- sqrt(model_stacks_placl$sigma^2)
+fixef_vals <- fitted(model_stacks_placl, level = 0)
+# get random effects by stack
+ranef_df <- ranef(model_stacks_placl)
 
 # data layout for simulation: list of stacks with their row indices
 mdat_stack <- mdat_stack %>% mutate(stack_uid = fct_drop(stack_uid))
@@ -469,7 +606,19 @@ for(sim in 1:nsim){
     rows <- stack_groups[[si]]
     n <- length(rows)
     # Build model-predicted mean on transformed scale for these rows
-    mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_stack$stack_uid[rows]), "(Intercept)"])
+    # extract random effects per level
+    identifiers <- str_split(names(stack_groups[si]), "\\.") %>% unlist()
+    plot_id <- identifiers[1]
+    position <- paste(plot_id, identifiers[2], sep = "/")
+    leaf_layer <- paste(position, identifiers[3], sep = "/")
+    ranef_plot <- ranef_df$plot_id
+    ranef_pos  <- ranef_df$position
+    ranef_leaf <- ranef_df$leaf_layer
+    # build mu_trans by summing the random intercepts at each level
+    mu_trans <- fixef_vals[rows] +
+      unname(ranef_plot[plot_id, "(Intercept)"]) +
+      unname(ranef_pos[position, "(Intercept)"]) +
+      unname(ranef_leaf[leaf_layer, "(Intercept)"])
     # correlation matrix for this stack
     Cor <- get_cor_matrix(model_stacks_placl$modelStruct$corStruct, n)
     # we multiply the correlation matrix by the residual variance to get the full covariance matrix
@@ -532,57 +681,31 @@ mdat_stack <- mdat_stack %>%
 mdat_stack$stack_uid = interaction(mdat_stack$plot_id, mdat_stack$position, mdat_stack$leaf_layer)
 
 # Fit an LMM
-# we have "pseudo-replicates" from the positions (1...32) for each plot.
-# Actually, we would need to specify 'position nested in plot' as a random factor to account for this. 
-# However, it is apparently not possible to have different formulae for the random and the correlation term; 
-# and nested terms are not allowed in the correlation term. Therefore, we include a random effect for each stack instead. 
-# According to my understanding, I cannot have nested random effects for plot/position and an AR(1) correlation along images in stacks at the same time. 
-# So this is not perfect, but OK for descriptive purposes? We don't do formal inference on plot-level effects, the main goal 
-# is to quantify auto-correlation based on the full data set. 
-# Leaf layer can be considered crossed with plot (leaf layer 1 has the same/a very similar meaning across all plots)
-# We include leaf layer as an additional fixed effect
-
-# stack_image_id is 1..10, thus identifying the "depth" of the image in each stack
-# stack_uid is a unique identifier for each focal stack
-
-# # without plot x layer interaction
-# model_stacks_0 <- lme(
-#   rust_log ~ plot_id + leaf_layer,
-#   random = ~1 | stack_uid,
-#   correlation = corAR1(form = ~ stack_image_id | stack_uid),
-#   data = mdat_stack,
-#   method = "REML",
-#   na.action=na.exclude
-# )
-# with plot x layer interaction
 model_stacks_rust <- lme(
   rust_log ~ plot_id * leaf_layer,
-  random = ~1 | stack_uid,
-  correlation = corAR1(form = ~ stack_image_id | stack_uid),
+  random = ~ 1 | plot_id/position/leaf_layer,
+  correlation = corAR1(form = ~ stack_image_id | plot_id/position/leaf_layer),
   data = mdat_stack,
   method = "REML",
   na.action=na.exclude
 )
-# AIC(model_stacks_0, model_stacks_1)  # preference for model 1
-plot(model_stacks_rust)
-qqnorm(resid(model_stacks_rust))
-qqline(resid(model_stacks_rust))
-hist(resid(model_stacks_rust))
-# OK, I guess? Best we can do?
+
+# plot model diagnostics
+diag_rust_stacks <- plot_diagnostics(model_stacks_rust)
 
 # get autocorrelation coefficient
 # this coefficient is valid for the logit-transformed data
 # logit-transformation 'stretches' values near 0 and 1
-# so a difference between PLACL 0 and 0.1 is 'amplified' compared to a difference between 
+# so a difference between PLACL 0 and 0.01 is 'amplified' compared to a difference between 
 # PLACL of 0.49 and 0.5; however, as breeders we would are more about values on the original PLACL scale ...
 phi1_stack_rust <- coef(model_stacks_rust$modelStruct$corStruct, unconstrained = FALSE)
 
 # SIMULATION
 # model pieces
-sigma_resid <- sqrt(model_stacks_rust$sigma^2)  # residual sd
-fixef_vals <- fitted(model_stacks_rust, level = 0)  # fixed-effect fitted values on transformed scale
-# get random effects by stack if you want to simulate them too:
-ranef_df <- ranef(model_stacks_rust)  # random intercepts per stack
+sigma_resid <- sqrt(model_stacks_rust$sigma^2)
+fixef_vals <- fitted(model_stacks_rust, level = 0)
+# get random effects by stack
+ranef_df <- ranef(model_stacks_rust)
 
 # data layout for simulation: list of stacks with their row indices
 mdat_stack <- mdat_stack %>% mutate(stack_uid = fct_drop(stack_uid))
@@ -598,7 +721,19 @@ for(sim in 1:nsim){
     rows <- stack_groups[[si]]
     n <- length(rows)
     # Build model-predicted mean on transformed scale for these rows
-    mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_stack$stack_uid[rows]), "(Intercept)"])
+    # extract random effects per level
+    identifiers <- str_split(names(stack_groups[si]), "\\.") %>% unlist()
+    plot_id <- identifiers[1]
+    position <- paste(plot_id, identifiers[2], sep = "/")
+    leaf_layer <- paste(position, identifiers[3], sep = "/")
+    ranef_plot <- ranef_df$plot_id
+    ranef_pos  <- ranef_df$position
+    ranef_leaf <- ranef_df$leaf_layer
+    # build mu_trans by summing the random intercepts at each level
+    mu_trans <- fixef_vals[rows] +
+      unname(ranef_plot[plot_id, "(Intercept)"]) +
+      unname(ranef_pos[position, "(Intercept)"]) +
+      unname(ranef_leaf[leaf_layer, "(Intercept)"])
     # correlation matrix for this stack
     Cor <- get_cor_matrix(model_stacks_rust$modelStruct$corStruct, n)
     # we multiply the correlation matrix by the residual variance to get the full covariance matrix
@@ -670,27 +805,25 @@ mdat_pos <- mdat_pos %>%
 mdat_pos$plot_layer <- interaction(mdat_pos$plot_id, mdat_pos$leaf_layer, drop = TRUE)
 
 # Fit AR1 along positions within plots
-model_position <- lme(
+model_position_placl <- lme(
   x ~ plot_id * leaf_layer,
-  random = ~1 | plot_layer,
-  correlation = corAR1(form = ~ as.numeric(position) | plot_layer),
+  random = ~1 | plot_id/leaf_layer,
+  correlation = corAR1(form = ~ as.numeric(position) | plot_id/leaf_layer),
   data = mdat_pos
 )
-plot(model_position)
-qqnorm(resid(model_position))
-qqline(resid(model_position))
-hist(resid(model_position))
-# Seems OK.
+
+# plot model diagnostics
+diag_PLACL_pos <- plot_diagnostics(model_position_placl)
 
 # get autocorrelation coefficient
 # Valid on logit-transformed scale
-phi1_pos_placl <- coef(model_position$modelStruct$corStruct, unconstrained = FALSE)
+phi1_pos_placl <- coef(model_position_placl$modelStruct$corStruct, unconstrained = FALSE)
 
 # model pieces
-sigma_resid <- sqrt(model_position$sigma^2)  # residual sd
-fixef_vals <- fitted(model_position, level = 0)  # fixed-effect fitted values on transformed scale
+sigma_resid <- sqrt(model_position_placl$sigma^2)  # residual sd
+fixef_vals <- fitted(model_position_placl, level = 0)  # fixed-effect fitted values on transformed scale
 # get random effects by stack if you want to simulate them too:
-ranef_df <- ranef(model_position)  # random intercepts per plot x layer
+ranef_df <- ranef(model_position_placl)  # random intercepts per plot x layer
 
 # data layout for simulation: list of stacks with their row indices
 mdat_pos <- mdat_pos %>% mutate(plot_layer = fct_drop(plot_layer))
@@ -706,12 +839,23 @@ for(sim in 1:nsim){
     rows <- stack_groups[[si]]
     n <- length(rows)
     # Build model-predicted mean on transformed scale for these rows
-    mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_pos$plot_layer[rows]), "(Intercept)"])
+    # extract random effects per level
+    identifiers <- str_split(names(stack_groups[si]), "\\.") %>% unlist()
+    plot_id <- identifiers[1]
+    leaf_layer <- paste(plot_id, identifiers[2], sep = "/")
+    ranef_plot <- ranef_df$plot_id
+    ranef_leaf <- ranef_df$leaf_layer
+    # build mu_trans by summing the random intercepts at each level
+    mu_trans <- fixef_vals[rows] +
+      unname(ranef_plot[plot_id, "(Intercept)"]) +
+      unname(ranef_leaf[leaf_layer, "(Intercept)"])
+    # # Build model-predicted mean on transformed scale for these rows
+    # mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_pos$plot_layer[rows]), "(Intercept)"])
     # correlation matrix for this stack
-    Cor <- get_cor_matrix(model_position$modelStruct$corStruct, n)
+    Cor <- get_cor_matrix(model_position_placl$modelStruct$corStruct, n)
     # we multiply the correlation matrix by the residual variance to get the full covariance matrix
     # resulting sigma encodes both variance and autocorrelation for the residuals within this stack
-    Sigma <- (model_position$sigma^2) * Cor
+    Sigma <- (model_position_placl$sigma^2) * Cor
     # simulate residuals
     eps <- mvrnorm(1, mu = rep(0,n), Sigma = Sigma)
     # add the simulated residuals to the predicted means
@@ -769,27 +913,25 @@ mdat_pos <- mdat_pos %>%
 mdat_pos$plot_layer <- interaction(mdat_pos$plot_id, mdat_pos$leaf_layer, drop = TRUE)
 
 # Fit AR1 along positions within plots
-model_position <- lme(
+model_position_rust <- lme(
   x ~ plot_id * leaf_layer,
-  random = ~1 | plot_layer,
-  correlation = corAR1(form = ~ as.numeric(position) | plot_layer),
+  random = ~1 | plot_id/leaf_layer,
+  correlation = corAR1(form = ~ as.numeric(position) | plot_id/leaf_layer),
   data = mdat_pos
 )
-plot(model_position)
-qqnorm(resid(model_position))
-qqline(resid(model_position))
-hist(resid(model_position))
-# Seems OK.
+
+# plot model diagnostics
+diag_rust_pos <- plot_diagnostics(model_position_rust)
 
 # get autocorrelation coefficient
 # Valid on logit-transformed scale
-phi1_pos_rust <- coef(model_position$modelStruct$corStruct, unconstrained = FALSE)
+phi1_pos_rust <- coef(model_position_rust$modelStruct$corStruct, unconstrained = FALSE)
 
 # model pieces
-sigma_resid <- sqrt(model_position$sigma^2)  # residual sd
-fixef_vals <- fitted(model_position, level = 0)  # fixed-effect fitted values on transformed scale
+sigma_resid <- sqrt(model_position_rust$sigma^2)  # residual sd
+fixef_vals <- fitted(model_position_rust, level = 0)  # fixed-effect fitted values on transformed scale
 # get random effects by stack if you want to simulate them too:
-ranef_df <- ranef(model_position)  # random intercepts per plot x layer
+ranef_df <- ranef(model_position_rust)  # random intercepts per plot x layer
 
 # data layout for simulation: list of stacks with their row indices
 mdat_pos <- mdat_pos %>% mutate(plot_layer = fct_drop(plot_layer))
@@ -805,12 +947,23 @@ for(sim in 1:nsim){
     rows <- stack_groups[[si]]
     n <- length(rows)
     # Build model-predicted mean on transformed scale for these rows
-    mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_pos$plot_layer[rows]), "(Intercept)"])
+    # extract random effects per level
+    identifiers <- str_split(names(stack_groups[si]), "\\.") %>% unlist()
+    plot_id <- identifiers[1]
+    leaf_layer <- paste(plot_id, identifiers[2], sep = "/")
+    ranef_plot <- ranef_df$plot_id
+    ranef_leaf <- ranef_df$leaf_layer
+    # build mu_trans by summing the random intercepts at each level
+    mu_trans <- fixef_vals[rows] +
+      unname(ranef_plot[plot_id, "(Intercept)"]) +
+      unname(ranef_leaf[leaf_layer, "(Intercept)"])
+    # # Build model-predicted mean on transformed scale for these rows
+    # mu_trans <- fixef_vals[rows] + unname(ranef_df[as.character(mdat_pos$plot_layer[rows]), "(Intercept)"])
     # correlation matrix for this stack
-    Cor <- get_cor_matrix(model_position$modelStruct$corStruct, n)
+    Cor <- get_cor_matrix(model_position_rust$modelStruct$corStruct, n)
     # we multiply the correlation matrix by the residual variance to get the full covariance matrix
     # resulting sigma encodes both variance and autocorrelation for the residuals within this stack
-    Sigma <- (model_position$sigma^2) * Cor
+    Sigma <- (model_position_rust$sigma^2) * Cor
     # simulate residuals
     eps <- mvrnorm(1, mu = rep(0,n), Sigma = Sigma)
     # add the simulated residuals to the predicted means
@@ -871,9 +1024,43 @@ final <- both +
   ) +
   theme(legend.position = c(0.5, 0.9))
 
-png("all_acf_estimates.png", width = 4, height = 6, units = 'in', res = 300)
+png("all_acf_estimates.png", width = 4, height = 7, units = 'in', res = 300)
 plot(final)
 dev.off()
 
+# model diagnostics plots
+all_diagnostics <- diag_PLACL_stacks /
+  diag_rust_stacks /
+  diag_PLACL_pos /
+  diag_rust_pos
+
+png("model_diagnostics.png", width = 6, height = 8, units = 'in', res = 300)
+plot(all_diagnostics)
+dev.off()
+
+# ============================================================================== -
+# 9) Effective sample sizes ----
 # ============================================================================== -
 
+n_eff_from_acf <- function(n, rho_vec){
+  kmax <- length(rho_vec)
+  kmax_use <- min(kmax, n-1)
+  ks <- 1:kmax_use
+  denom <- 1 + 2 * sum( (1 - ks/n) * abs(rho_vec[ks]) )
+  n_eff <- n / denom
+  return(n_eff)
+}
+
+mbased <- model_based_acf
+sbased <- pdat_summary_both
+
+# get point estimate
+n_eff_point_mbased <- mbased %>% group_by(trait, level) %>% nest() %>% 
+  mutate(n = purrr::map_dbl(data, nrow),
+         n_eff_point = purrr::map_dbl(data, ~n_eff_from_acf(nrow(.), .$mean)),
+         n_eff_point_norm = n_eff_point/n)
+n_eff_point_sbased <- sbased %>% group_by(trait, level) %>% nest() %>% 
+  mutate(n = purrr::map_dbl(data, nrow),
+         n_eff_point = purrr::map_dbl(data, ~n_eff_from_acf(nrow(.), .$mean_acf)),
+         n_eff_point_norm = n_eff_point/n)
+# ============================================================================== -
