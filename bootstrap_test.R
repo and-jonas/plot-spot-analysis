@@ -1,4 +1,6 @@
 
+start_time <- Sys.time()
+
 rm(list = ls())
 
 .libPaths(c("~/R/library", .libPaths()))
@@ -10,7 +12,7 @@ Sys.setenv(
 )
 
 # install required packages
-list.of.packages <- c("tidyverse", "nlme", "pbmcapply")
+list.of.packages <- c("nlme", "dplyr", "tidyr", "purrr", "stringr", "forcats", "tibble", "parallel", "MASS")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages, lib = "~/R/library", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
 
@@ -21,9 +23,11 @@ library(purrr)
 library(stringr)
 library(forcats)
 library(tibble)
-library(pbmcapply)
+library(parallel)
+library(MASS)
 
-setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+# setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 source("R/utils.R")
 sub <- read.csv("data/subset.csv")
@@ -56,10 +60,36 @@ mdat_stack$stack_uid = interaction(mdat_stack$plot_id, mdat_stack$position, mdat
 # bootstrap
 nboot = 9
 nsim = 3
-ncores <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))
 cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
+ncores <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))-2
+cat("Using", ncores, "\n")
 
-bootstrap_results <- pbmclapply(
+cl <- makeCluster(ncores)
+
+clusterEvalQ(cl, {
+  library(nlme)
+  library(dplyr)
+  library(tidyr)
+  library(purrr)
+  library(stringr)
+  library(forcats)
+  library(tibble)
+  library(MASS)
+})
+
+clusterExport(
+  cl,
+  c(
+    "mdat_stack",
+    "get_cor_matrix",
+    "inv_logit_adjusted",
+    "n_eff_from_acf",
+    "nsim"
+  )
+)
+
+bootstrap_results <- parLapply(
+  cl, 
   1:nboot,
   function(b){
     
@@ -107,6 +137,9 @@ bootstrap_results <- pbmclapply(
     # ---------------------------------------------------------- -
     
     # Fit the LMM
+    
+    print("fitting model")
+    
     # model_boot <- try(
     #   lme(
     #     placl_logit ~ plot_id * leaf_layer,
@@ -130,6 +163,8 @@ bootstrap_results <- pbmclapply(
       method="REML",
       na.action=na.exclude
     )
+    
+    print("model fitted")
     
     # ---------------------------------------------------------- -
     # simulate original scale ACF
@@ -222,13 +257,20 @@ bootstrap_results <- pbmclapply(
         n_eff = n_eff,
         phi = phi1_stack_placl
       )
-    )},
-  mc.cores = ncores
+    )}
 )
+
+stopCluster(cl)
 
 saveRDS(
   bootstrap_results,
   file = "data/bootstrap_results.rds"
 )
 
-cat("Bootstrap finished successfully\n")
+end_time <- Sys.time()
+
+cat(
+  "Total runtime:",
+  round(difftime(end_time, start_time, units = "mins"), 2),
+  "minutes\n"
+)
