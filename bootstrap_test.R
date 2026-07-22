@@ -107,20 +107,29 @@ bootstrap_results <- pbmclapply(
     # ---------------------------------------------------------- -
     
     # Fit the LMM
-    model_boot <- try(
-      lme(
-        placl_logit ~ plot_id * leaf_layer,
-        random =~1 | plot_id/position/leaf_layer,
-        correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
-        data=boot_data,
-        method="REML",
-        na.action=na.exclude
-      ),
-      silent=TRUE
+    # model_boot <- try(
+    #   lme(
+    #     placl_logit ~ plot_id * leaf_layer,
+    #     random =~1 | plot_id/position/leaf_layer,
+    #     correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
+    #     data=boot_data,
+    #     method="REML",
+    #     na.action=na.exclude
+    #   ),
+    #   silent=TRUE
+    # )
+    # if(inherits(model_boot, "try-error")){
+    #   return(NULL)
+    # }
+    
+    model_boot <- lme(
+      placl_logit ~ plot_id * leaf_layer,
+      random =~1 | plot_id/position/leaf_layer,
+      correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
+      data=boot_data,
+      method="REML",
+      na.action=na.exclude
     )
-    if(inherits(model_boot, "try-error")){
-      return(NULL)
-    }
     
     # ---------------------------------------------------------- -
     # simulate original scale ACF
