@@ -1,7 +1,7 @@
 
-start_time <- Sys.time()
-
 rm(list = ls())
+
+start_time <- Sys.time()
 
 .libPaths(c("~/R/library", .libPaths()))
 
@@ -63,6 +63,7 @@ nsim = 3
 cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
 ncores <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))-2
 cat("Using", ncores, "\n")
+# ncores <- 1
 
 cl <- makeCluster(ncores)
 
