@@ -3,6 +3,12 @@ rm(list = ls())
 
 .libPaths(c("~/R/library", .libPaths()))
 
+Sys.setenv(
+  OMP_NUM_THREADS = 1,
+  OPENBLAS_NUM_THREADS = 1,
+  MKL_NUM_THREADS = 1
+)
+
 # install required packages
 list.of.packages <- c("tidyverse", "nlme", "pbmcapply")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -23,13 +29,6 @@ source("R/utils.R")
 sub <- read.csv("data/subset.csv")
 
 cat("Available cores:", parallel::detectCores(), "\n")
-cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
-
-Sys.setenv(
-  OMP_NUM_THREADS = 1,
-  OPENBLAS_NUM_THREADS = 1,
-  MKL_NUM_THREADS = 1
-)
 
 # ============================================================================== -
 # 6) model-based; STEP 1 ----
@@ -55,9 +54,10 @@ mdat_stack <- mdat_stack %>%
 mdat_stack$stack_uid = interaction(mdat_stack$plot_id, mdat_stack$position, mdat_stack$leaf_layer)
 
 # bootstrap
-nboot = 3
+nboot = 9
 nsim = 3
 ncores <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))
+cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
 
 bootstrap_results <- pbmclapply(
   1:nboot,
