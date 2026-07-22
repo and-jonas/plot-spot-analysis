@@ -4,7 +4,7 @@ rm(list = ls())
 # install required packages
 list.of.packages <- c("tidyverse", "nlme", "pbmcapply")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages, lib = "T:/R4Userlibs", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
+if(length(new.packages)) install.packages(new.packages, dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
 
 library(nlme)
 library(tidyverse)
