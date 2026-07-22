@@ -67,6 +67,10 @@ cat("Using", ncores, "\n")
 cl <- makeCluster(ncores)
 
 clusterEvalQ(cl, {
+  .libPaths(c("~/R/library", .libPaths()))
+})
+
+clusterEvalQ(cl, {
   library(nlme)
   library(dplyr)
   library(tidyr)
