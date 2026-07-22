@@ -26,8 +26,8 @@ library(tibble)
 library(parallel)
 library(MASS)
 
-# setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
-setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+# setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 source("R/utils.R")
 sub <- read.csv("data/subset.csv")
@@ -144,6 +144,31 @@ bootstrap_results <- parLapply(
     
     print("fitting model")
     
+    model_boot <- tryCatch(
+      {
+        lme(
+          placl_logit ~ plot_id * leaf_layer,
+          random =~1 | plot_id/position/leaf_layer,
+          correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
+          data=boot_data,
+          method="REML",
+          na.action=na.exclude
+        )
+      },
+      error = function(e) {
+        message(
+          "Bootstrap ", b,
+          " failed: ",
+          e$message
+        )
+        return(NULL)
+      }
+    )
+    
+    if(is.null(model_boot)){
+      return(NULL)
+    }
+    
     # model_boot <- try(
     #   lme(
     #     placl_logit ~ plot_id * leaf_layer,
@@ -158,17 +183,17 @@ bootstrap_results <- parLapply(
     # if(inherits(model_boot, "try-error")){
     #   return(NULL)
     # }
-    
-    model_boot <- lme(
-      placl_logit ~ plot_id * leaf_layer,
-      random =~1 | plot_id/position/leaf_layer,
-      correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
-      data=boot_data,
-      method="REML",
-      na.action=na.exclude
-    )
-    
-    print("model fitted")
+    # 
+    # model_boot <- lme(
+    #   placl_logit ~ plot_id * leaf_layer,
+    #   random =~1 | plot_id/position/leaf_layer,
+    #   correlation = corAR1(form = ~ stack_image_id |plot_id/position/leaf_layer),
+    #   data=boot_data,
+    #   method="REML",
+    #   na.action=na.exclude
+    # )
+    # 
+    # print("model fitted")
     
     # ---------------------------------------------------------- -
     # simulate original scale ACF
