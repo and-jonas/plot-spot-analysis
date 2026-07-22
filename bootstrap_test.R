@@ -20,7 +20,7 @@ library(pbmcapply)
 setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 source("R/utils.R")
-sub <- read_csv("data/subset.csv")
+sub <- read.csv("data/subset.csv")
 
 cat("Available cores:", parallel::detectCores(), "\n")
 cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
