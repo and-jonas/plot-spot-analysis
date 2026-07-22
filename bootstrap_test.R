@@ -1,17 +1,19 @@
 
 rm(list = ls())
 
+# install required packages
+list.of.packages <- c("tidyverse", "nlme", "pbmcapply")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, lib = "T:/R4Userlibs", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
+
 library(nlme)
-library(MASS)
 library(tidyverse)
-library(patchwork)
 library(pbmcapply)
 
-setwd("Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 source("R/utils.R")
-
-sub <- read_csv("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream/data/subset.csv")
+sub <- read_csv("data/subset.csv")
 
 cat("Available cores:", parallel::detectCores(), "\n")
 cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
@@ -199,5 +201,6 @@ bootstrap_results <- pbmclapply(
         phi = phi1_stack_placl
       )
     )},
-  mc.cores = ncores
+  # mc.cores = ncores
+  mc.cores = parallel::detectCores()
 )
