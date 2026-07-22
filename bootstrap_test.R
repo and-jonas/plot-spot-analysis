@@ -9,7 +9,12 @@ new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"
 if(length(new.packages)) install.packages(new.packages, lib = "~/R/library", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
 
 library(nlme)
-library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(stringr)
+library(forcats)
+library(tibble)
 library(pbmcapply)
 
 setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
