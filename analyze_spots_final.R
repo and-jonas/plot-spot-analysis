@@ -10,7 +10,7 @@ library(MASS)
 library(tidyverse)
 library(patchwork)
 
-setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack")
+setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 # basic plot theme
 base_theme <- theme_classic(base_size = 12) +
@@ -180,6 +180,9 @@ sub <- data %>%
 ggplot(sub) +
   geom_boxplot(aes(x = genotype_name, y = value)) + 
   facet_wrap(~trait, scales = "free")
+
+write.csv(sub, "O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream/data/subset.csv",
+          row.names = F)
 
 # ============================================================================== -
 # 1) prelim: stackpos vs. placl ----
@@ -596,6 +599,13 @@ ranef_df <- ranef(model_stacks_placl)
 mdat_stack <- mdat_stack %>% mutate(stack_uid = fct_drop(stack_uid))
 stack_groups <- split(1:nrow(mdat_stack), mdat_stack$stack_uid)
 
+###   # test if it is always the first images in the stack that are missing
+incomplete <- mdat_stack %>% group_by(plot_id, leaf_layer, position) %>% nest() %>% 
+  mutate(nimg = purrr::map_dbl(data, nrow)) %>% filter(nimg != 10) %>% 
+  unnest() %>% 
+  slice(1) %>% 
+  mutate(test = ifelse(nimg==(10-(stack_image_id-1)), TRUE, FALSE)) %>% filter(test = FALSE)
+
 nsim <- 20
 acf_sims <- matrix(NA, nrow = nsim, ncol = 10)  # lags 0..9
 
@@ -992,6 +1002,7 @@ model_based_acf_pos_rust <- tibble(lag = c(0:24),
                                    mean = model_based_acf_mean,
                                    upper = model_based_acf_ci[1, ],
                                    lower = model_based_acf_ci[2, ])
+
 
 # ============================================================================== -
 # 8) get all data and make plot ----
