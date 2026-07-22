@@ -208,6 +208,12 @@ bootstrap_results <- pbmclapply(
         phi = phi1_stack_placl
       )
     )},
-  # mc.cores = ncores
-  mc.cores = parallel::detectCores()
+  mc.cores = ncores
 )
+
+saveRDS(
+  bootstrap_results,
+  file = "data/bootstrap_results.rds"
+)
+
+cat("Bootstrap finished successfully\n")
