@@ -25,6 +25,12 @@ sub <- read.csv("data/subset.csv")
 cat("Available cores:", parallel::detectCores(), "\n")
 cat("Allocated cores:", Sys.getenv("SLURM_CPUS_PER_TASK"), "\n")
 
+Sys.setenv(
+  OMP_NUM_THREADS = 1,
+  OPENBLAS_NUM_THREADS = 1,
+  MKL_NUM_THREADS = 1
+)
+
 # ============================================================================== -
 # 6) model-based; STEP 1 ----
 # Auto-correlation in focal stacks
