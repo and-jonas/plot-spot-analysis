@@ -3,18 +3,18 @@ rm(list = ls())
 
 start_time <- Sys.time()
 
-# .libPaths(c("~/R/library", .libPaths()))
-# 
-# Sys.setenv(
-#   OMP_NUM_THREADS = 1,
-#   OPENBLAS_NUM_THREADS = 1,
-#   MKL_NUM_THREADS = 1
-# )
-# 
-# # install required packages
-# list.of.packages <- c("nlme", "dplyr", "tidyr", "purrr", "stringr", "forcats", "tibble", "parallel", "MASS")
-# new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-# if(length(new.packages)) install.packages(new.packages, lib = "~/R/library", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
+.libPaths(c("~/R/library", .libPaths()))
+
+Sys.setenv(
+  OMP_NUM_THREADS = 1,
+  OPENBLAS_NUM_THREADS = 1,
+  MKL_NUM_THREADS = 1
+)
+
+# install required packages
+list.of.packages <- c("nlme", "dplyr", "tidyr", "purrr", "stringr", "forcats", "tibble", "parallel", "MASS")
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages, lib = "~/R/library", dependencies = TRUE, repos='https://stat.ethz.ch/CRAN/')
 
 library(nlme)
 library(dplyr)
@@ -26,8 +26,8 @@ library(tibble)
 library(parallel)
 library(MASS)
 
-# setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
-setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+setwd("/agroscope/Data-Work-CH/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
+# setwd("O:/Data-Work/22_Plant_Production-CH/224_Digitalisation/Jonas_Anderegg_Files/C_Manuscripts/2025_FocalStack_Downstream")
 
 source("R/utils.R")
 sub <- read.csv("data/subset.csv")
