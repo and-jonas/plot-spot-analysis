@@ -634,7 +634,9 @@ bootstrap_results <- parLapply(
           length(x) <- max_lag   # extends with NA
           x
         })
-      )      acf_sims[sim, ] <- colMeans(acf_per_stack_mat, na.rm = TRUE)
+      )      
+      
+      acf_sims[sim, ] <- colMeans(acf_per_stack_mat, na.rm = TRUE)
     }
 
     # summarize
