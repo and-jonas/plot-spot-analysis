@@ -1,8 +1,8 @@
 # Analysis of repeated plot measurements
 
 <p align="center">
-  <img src="img/Schematic_figure_sampling_data.jpg" alt="Focal stack" width="45%" />
-  <img src="img/another_figure.jpg" alt="Sampling procedure" width="45%" />
+  <img src="img/compressed_focal_stack.jpg" alt="Focal stack" width="45%" />
+  <img src="img/Schematic_figure_sampling_data.jpg" alt="Sampling procedure" width="45%" />
 </p>
 This repository contains code to reproduce the statistical analysis, numeric results, figures, and tables reported in [todo: add link to published version].
 
