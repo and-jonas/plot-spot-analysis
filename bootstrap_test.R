@@ -705,7 +705,7 @@ bootstrap_results <- parLapply(
             return(NULL)
           }
         )
-        if(is.null(model_position_placl)){
+        if(is.null(model_position_rust)){
           return(NULL)
         }
 
