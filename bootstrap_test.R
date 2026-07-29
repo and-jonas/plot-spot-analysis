@@ -480,7 +480,7 @@ clusterExport(
   c(
     "mdat_stack",
     "get_cor_matrix",
-    "inv_logit_adjusted",
+    "inv_log_adjusted",
     "n_eff_from_acf",
     "nsim"
   )

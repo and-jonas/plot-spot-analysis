@@ -11,6 +11,13 @@ inv_logit_adjusted <- function(x, eps=0.001){
   p <- exp(x)/(1+exp(x))
   p*(1+eps) - eps
 }
+inv_log_adjusted <- function(x, eps = 0.1) {
+  # Undo log(x + eps) -> return x
+  orig <- exp(x) - eps
+  # Clamp to >= 0 to avoid negative values
+  orig[orig < 0] <- 0
+  return(orig)
+}
 
 # estimate effective sample size
 n_eff_from_acf <- function(n, rho_vec){
