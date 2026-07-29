@@ -1,4 +1,4 @@
-# Analysis of repeated plot measurements
+# Analysis of repeated plot measurements of foliar disease using high-resolution RGB imagery
 
 <p align="center">
   <img src="img/compressed_focal_stack.jpg" alt="Focal stack" width="30%" />
